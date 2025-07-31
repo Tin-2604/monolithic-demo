@@ -56,18 +56,32 @@ const db = mysql.createPool({
   password: process.env.DB_PASSWORD || 'admin',
   database: process.env.DB_NAME || 'pickleball',
   charset: 'utf8mb4',
-  connectionLimit: 10
+  connectionLimit: 10,
+  connectTimeout: 60000,
+  acquireTimeout: 60000,
+  timeout: 60000,
+  queueLimit: 0
 });
 
-// Test kết nối
-db.getConnection((err, connection) => {
-  if (err) {
-    console.error('Lỗi kết nối MySQL:', err);
-  } else {
-    console.log('Kết nối MySQL thành công!');
-    connection.release();
-  }
-});
+// Test kết nối với retry
+function testConnection(retries = 3) {
+  db.getConnection((err, connection) => {
+    if (err) {
+      console.error('Lỗi kết nối MySQL:', err);
+      if (retries > 0) {
+        console.log(`Thử kết nối lại... (${retries} lần còn lại)`);
+        setTimeout(() => testConnection(retries - 1), 5000);
+      } else {
+        console.error('Không thể kết nối database sau nhiều lần thử');
+      }
+    } else {
+      console.log('Kết nối MySQL thành công!');
+      connection.release();
+    }
+  });
+}
+
+testConnection();
 
 // Truyền kết nối DB cho routes
 app.set('db', db);
