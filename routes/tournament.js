@@ -243,12 +243,26 @@ router.post('/register', upload.array('avatar[]'), (req, res) => {
 
   // Tạo registration record
   const userId = req.session.user.id; // Lấy user_id từ session
-  db.query(
-    `INSERT INTO registration (leader_name, leader_phone, envent_id, user_id) 
-     VALUES (?, ?, ?, ?)`,
-    [fullname, phone, event_id, userId],
-    (err, result) => {
-              if (err) {
+  db.getConnection((err, connection) => {
+    if (err) {
+      console.error('Database connection error:', err);
+      if (req.xhr || req.headers.accept.indexOf('json') > -1 || req.headers['content-type']?.includes('multipart/form-data')) {
+        return res.status(500).json({
+          success: false,
+          message: 'Lỗi kết nối database!'
+        });
+      } else {
+        return res.status(500).send('Lỗi kết nối database!');
+      }
+    }
+
+    connection.query(
+      `INSERT INTO registration (leader_name, leader_phone, envent_id, user_id) 
+       VALUES (?, ?, ?, ?)`,
+      [fullname, phone, event_id, userId],
+      (err, result) => {
+        if (err) {
+          connection.release();
           console.error('Lỗi tạo registration:', err);
           if (req.xhr || req.headers.accept.indexOf('json') > -1 || req.headers['content-type']?.includes('multipart/form-data')) {
             return res.status(500).json({
@@ -260,62 +274,64 @@ router.post('/register', upload.array('avatar[]'), (req, res) => {
           }
         }
 
-      const registration_id = result.insertId;
-      console.log('Registration ID:', registration_id);
+        const registration_id = result.insertId;
+        console.log('Registration ID:', registration_id);
 
-      // Lưu từng vận động viên
-      let error = null;
-      let done = 0;
-      for (let i = 0; i < n; i++) {
-        db.query(
-          `INSERT INTO players (registration_id, category, full_name, nick_name, phone_number, gender, date_of_birth, avatar_path)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            registration_id,
-            category,
-            full_names[i],
-            nick_names[i] || null,
-            phone_numbers[i],
-            mapGender(genders[i]),
-            birthdates[i] || null,
-            files[i].filename
-          ],
-          (err) => {
-            done++;
-            if (err) {
-              console.error('Gender debug:', {
-                original: genders[i],
-                mapped: mapGender(genders[i]),
-                error: err.message
-              });
-              error = 'Lỗi lưu DB: ' + err.message;
-            }
-            if (done === n) {
-              if (error) {
+        // Lưu từng vận động viên
+        let error = null;
+        let done = 0;
+        for (let i = 0; i < n; i++) {
+          connection.query(
+            `INSERT INTO players (registration_id, category, full_name, nick_name, phone_number, gender, date_of_birth, avatar_path)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              registration_id,
+              category,
+              full_names[i],
+              nick_names[i] || null,
+              phone_numbers[i],
+              mapGender(genders[i]),
+              birthdates[i] || null,
+              files[i].filename
+            ],
+            (err) => {
+              done++;
+              if (err) {
+                console.error('Gender debug:', {
+                  original: genders[i],
+                  mapped: mapGender(genders[i]),
+                  error: err.message
+                });
+                error = 'Lỗi lưu DB: ' + err.message;
+              }
+              if (done === n) {
+                connection.release();
+                if (error) {
+                  if (req.xhr || req.headers.accept.indexOf('json') > -1 || req.headers['content-type']?.includes('multipart/form-data')) {
+                    return res.status(500).json({
+                      success: false,
+                      message: error
+                    });
+                  } else {
+                    return res.status(500).send(error);
+                  }
+                }
+                // Check if it's an AJAX request
                 if (req.xhr || req.headers.accept.indexOf('json') > -1 || req.headers['content-type']?.includes('multipart/form-data')) {
-                  return res.status(500).json({
-                    success: false,
-                    message: error
+                  return res.json({
+                    success: true,
+                    message: 'Đăng ký thành công'
                   });
                 } else {
-                  return res.status(500).send(error);
+                  return res.redirect('/form?success=1');
                 }
               }
-              // Check if it's an AJAX request
-              if (req.xhr || req.headers.accept.indexOf('json') > -1 || req.headers['content-type']?.includes('multipart/form-data')) {
-                return res.json({
-                  success: true,
-                  message: 'Đăng ký thành công'
-                });
-              } else {
-                return res.redirect('/form?success=1');
-              }
             }
-          }
-        );
+          );
+        }
       }
-    }
-  );
+    );
+  });
 });
 
 module.exports = router;

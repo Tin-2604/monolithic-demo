@@ -131,40 +131,48 @@ app.get('/api/tournament-data', requireAuth, (req, res) => {
   
   query += ` ORDER BY r.registration_id, p.id`;
   
-  db.query(query, params, (err, results) => {
+  db.getConnection((err, connection) => {
     if (err) {
-      console.error('Lỗi query database:', err);
-      return res.status(500).json({ success: false, message: 'Lỗi database' });
+      console.error('Database connection error:', err);
+      return res.status(500).json({ success: false, message: 'Lỗi kết nối database' });
     }
     
-    // Nhóm dữ liệu theo registration
-    const groupedData = {};
-    results.forEach(row => {
-      if (!groupedData[row.registration_id]) {
-        groupedData[row.registration_id] = {
-          registration_id: row.registration_id,
-          event_id: row.envent_id,
-          leader_name: row.leader_name,
-          leader_phone: row.leader_phone,
-          players: []
-        };
+    connection.query(query, params, (err, results) => {
+      connection.release();
+      if (err) {
+        console.error('Lỗi query database:', err);
+        return res.status(500).json({ success: false, message: 'Lỗi database' });
       }
       
-      if (row.player_id) {
-        groupedData[row.registration_id].players.push({
-          id: row.player_id,
-          category: row.category,
-          full_name: row.full_name,
-          nick_name: row.nick_name,
-          phone_number: row.phone_number,
-          gender: row.gender,
-          date_of_birth: row.date_of_birth,
-          avatar_path: row.avatar_path
-        });
-      }
+      // Nhóm dữ liệu theo registration
+      const groupedData = {};
+      results.forEach(row => {
+        if (!groupedData[row.registration_id]) {
+          groupedData[row.registration_id] = {
+            registration_id: row.registration_id,
+            event_id: row.envent_id,
+            leader_name: row.leader_name,
+            leader_phone: row.leader_phone,
+            players: []
+          };
+        }
+        
+        if (row.player_id) {
+          groupedData[row.registration_id].players.push({
+            id: row.player_id,
+            category: row.category,
+            full_name: row.full_name,
+            nick_name: row.nick_name,
+            phone_number: row.phone_number,
+            gender: row.gender,
+            date_of_birth: row.date_of_birth,
+            avatar_path: row.avatar_path
+          });
+        }
+      });
+      
+      res.json({ success: true, data: Object.values(groupedData) });
     });
-    
-    res.json({ success: true, data: Object.values(groupedData) });
   });
 });
 
@@ -206,42 +214,50 @@ app.get('/api/admin-tournament-data', requireAuth, requireAdmin, (req, res) => {
   
   query += ` ORDER BY r.registration_id, p.id`;
   
-  db.query(query, params, (err, results) => {
+  db.getConnection((err, connection) => {
     if (err) {
-      console.error('Lỗi query database:', err);
-      return res.status(500).json({ success: false, message: 'Lỗi database' });
+      console.error('Database connection error:', err);
+      return res.status(500).json({ success: false, message: 'Lỗi kết nối database' });
     }
     
-    // Nhóm dữ liệu theo registration
-    const groupedData = {};
-    results.forEach(row => {
-      if (!groupedData[row.registration_id]) {
-        groupedData[row.registration_id] = {
-          registration_id: row.registration_id,
-          event_id: row.envent_id,
-          leader_name: row.leader_name,
-          leader_phone: row.leader_phone,
-          user_id: row.user_id,
-          user_username: row.user_username,
-          players: []
-        };
+    connection.query(query, params, (err, results) => {
+      connection.release();
+      if (err) {
+        console.error('Lỗi query database:', err);
+        return res.status(500).json({ success: false, message: 'Lỗi database' });
       }
       
-      if (row.player_id) {
-        groupedData[row.registration_id].players.push({
-          id: row.player_id,
-          category: row.category,
-          full_name: row.full_name,
-          nick_name: row.nick_name,
-          phone_number: row.phone_number,
-          gender: row.gender,
-          date_of_birth: row.date_of_birth,
-          avatar_path: row.avatar_path
-        });
-      }
+      // Nhóm dữ liệu theo registration
+      const groupedData = {};
+      results.forEach(row => {
+        if (!groupedData[row.registration_id]) {
+          groupedData[row.registration_id] = {
+            registration_id: row.registration_id,
+            event_id: row.envent_id,
+            leader_name: row.leader_name,
+            leader_phone: row.leader_phone,
+            user_id: row.user_id,
+            user_username: row.user_username,
+            players: []
+          };
+        }
+        
+        if (row.player_id) {
+          groupedData[row.registration_id].players.push({
+            id: row.player_id,
+            category: row.category,
+            full_name: row.full_name,
+            nick_name: row.nick_name,
+            phone_number: row.phone_number,
+            gender: row.gender,
+            date_of_birth: row.date_of_birth,
+            avatar_path: row.avatar_path
+          });
+        }
+      });
+      
+      res.json({ success: true, data: Object.values(groupedData) });
     });
-    
-    res.json({ success: true, data: Object.values(groupedData) });
   });
 });
 
@@ -315,51 +331,61 @@ app.post('/api/add-player', requireAuth, upload.array('avatar[]'), (req, res) =>
 
   // Create new registration
   const userId = req.session.user.id; // Lấy user_id từ session
-  db.query(
-    `INSERT INTO registration (envent_id, leader_name, leader_phone, user_id) VALUES (?, ?, ?, ?)`,
-    [1, fullname, phone, userId],
-    (err, result) => {
-      if (err) {
-        console.error('Lỗi tạo registration:', err);
-        return res.status(500).json({ success: false, message: 'Lỗi database: ' + err.message });
-      }
-      
-      const registration_id = result.insertId;
-      
-      // Insert players
-      const playerPromises = full_name.map((name, index) => {
-        return new Promise((resolve, reject) => {
-          const nick = nick_name && nick_name[index] ? nick_name[index] : null;
-          const phoneNum = phone_number[index];
-          const genderVal = gender && gender[index] ? gender[index] : null;
-          const birthdate = date_of_birth && date_of_birth[index] ? date_of_birth[index] : null;
-          const avatarPath = files[index] ? files[index].filename : null;
-          
-          db.query(
-            `INSERT INTO players (registration_id, category, full_name, nick_name, phone_number, gender, date_of_birth, avatar_path)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [registration_id, category, name, nick, phoneNum, genderVal, birthdate, avatarPath],
-            (err, result) => {
-              if (err) {
-                reject(err);
-              } else {
-                resolve(result);
-              }
-            }
-          );
-        });
-      });
-      
-      Promise.all(playerPromises)
-        .then(() => {
-          res.json({ success: true, message: 'Thêm VĐV thành công', registration_id });
-        })
-        .catch(err => {
-          console.error('Lỗi thêm VĐV:', err);
-          res.status(500).json({ success: false, message: 'Lỗi database: ' + err.message });
-        });
+  db.getConnection((err, connection) => {
+    if (err) {
+      console.error('Database connection error:', err);
+      return res.status(500).json({ success: false, message: 'Lỗi kết nối database' });
     }
-  );
+    
+    connection.query(
+      `INSERT INTO registration (envent_id, leader_name, leader_phone, user_id) VALUES (?, ?, ?, ?)`,
+      [1, fullname, phone, userId],
+      (err, result) => {
+        if (err) {
+          connection.release();
+          console.error('Lỗi tạo registration:', err);
+          return res.status(500).json({ success: false, message: 'Lỗi database: ' + err.message });
+        }
+        
+        const registration_id = result.insertId;
+        
+        // Insert players
+        const playerPromises = full_name.map((name, index) => {
+          return new Promise((resolve, reject) => {
+            const nick = nick_name && nick_name[index] ? nick_name[index] : null;
+            const phoneNum = phone_number[index];
+            const genderVal = gender && gender[index] ? gender[index] : null;
+            const birthdate = date_of_birth && date_of_birth[index] ? date_of_birth[index] : null;
+            const avatarPath = files[index] ? files[index].filename : null;
+            
+            connection.query(
+              `INSERT INTO players (registration_id, category, full_name, nick_name, phone_number, gender, date_of_birth, avatar_path)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              [registration_id, category, name, nick, phoneNum, genderVal, birthdate, avatarPath],
+              (err, result) => {
+                if (err) {
+                  reject(err);
+                } else {
+                  resolve(result);
+                }
+              }
+            );
+          });
+        });
+        
+        Promise.all(playerPromises)
+          .then(() => {
+            connection.release();
+            res.json({ success: true, message: 'Thêm VĐV thành công', registration_id });
+          })
+          .catch(err => {
+            connection.release();
+            console.error('Lỗi thêm VĐV:', err);
+            res.status(500).json({ success: false, message: 'Lỗi database: ' + err.message });
+          });
+      }
+    );
+  });
 });
 
 // API route để cập nhật VĐV
@@ -441,63 +467,75 @@ app.post('/api/update-player', requireAuth, upload.array('avatar[]'), (req, res)
     updateParams = [fullname, phone, teamId, userId];
   }
   
-  db.query(updateQuery, updateParams,
-    (err, result) => {
-      if (err) {
-        console.error('Lỗi cập nhật registration:', err);
-        return res.status(500).json({ success: false, message: 'Lỗi database: ' + err.message });
-      }
-      
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ success: false, message: 'Không tìm thấy thông tin để cập nhật' });
-      }
-      
-      // Delete existing players for this registration
-      db.query(
-        `DELETE FROM players WHERE registration_id = ?`,
-        [teamId],
-        (err, result) => {
-          if (err) {
-            console.error('Lỗi xóa players cũ:', err);
-            return res.status(500).json({ success: false, message: 'Lỗi database: ' + err.message });
-          }
-          
-          // Insert updated players
-          const playerPromises = full_name.map((name, index) => {
-            return new Promise((resolve, reject) => {
-              const nick = nick_name && nick_name[index] ? nick_name[index] : null;
-              const phoneNum = phone_number[index];
-              const genderVal = gender && gender[index] ? gender[index] : null;
-              const birthdate = date_of_birth && date_of_birth[index] ? date_of_birth[index] : null;
-              const avatarPath = files && files[index] ? files[index].filename : null;
-              
-              db.query(
-                `INSERT INTO players (registration_id, category, full_name, nick_name, phone_number, gender, date_of_birth, avatar_path)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                [teamId, category, name, nick, phoneNum, genderVal, birthdate, avatarPath],
-                (err, result) => {
-                  if (err) {
-                    reject(err);
-                  } else {
-                    resolve(result);
-                  }
-                }
-              );
-            });
-          });
-          
-          Promise.all(playerPromises)
-            .then(() => {
-              res.json({ success: true, message: 'Cập nhật VĐV thành công', registration_id: teamId });
-            })
-            .catch(err => {
-              console.error('Lỗi cập nhật VĐV:', err);
-              res.status(500).json({ success: false, message: 'Lỗi database: ' + err.message });
-            });
-        }
-      );
+  db.getConnection((err, connection) => {
+    if (err) {
+      console.error('Database connection error:', err);
+      return res.status(500).json({ success: false, message: 'Lỗi kết nối database' });
     }
-  );
+    
+    connection.query(updateQuery, updateParams,
+      (err, result) => {
+        if (err) {
+          connection.release();
+          console.error('Lỗi cập nhật registration:', err);
+          return res.status(500).json({ success: false, message: 'Lỗi database: ' + err.message });
+        }
+        
+        if (result.affectedRows === 0) {
+          connection.release();
+          return res.status(404).json({ success: false, message: 'Không tìm thấy thông tin để cập nhật' });
+        }
+        
+        // Delete existing players for this registration
+        connection.query(
+          `DELETE FROM players WHERE registration_id = ?`,
+          [teamId],
+          (err, result) => {
+            if (err) {
+              connection.release();
+              console.error('Lỗi xóa players cũ:', err);
+              return res.status(500).json({ success: false, message: 'Lỗi database: ' + err.message });
+            }
+            
+            // Insert updated players
+            const playerPromises = full_name.map((name, index) => {
+              return new Promise((resolve, reject) => {
+                const nick = nick_name && nick_name[index] ? nick_name[index] : null;
+                const phoneNum = phone_number[index];
+                const genderVal = gender && gender[index] ? gender[index] : null;
+                const birthdate = date_of_birth && date_of_birth[index] ? date_of_birth[index] : null;
+                const avatarPath = files && files[index] ? files[index].filename : null;
+                
+                connection.query(
+                  `INSERT INTO players (registration_id, category, full_name, nick_name, phone_number, gender, date_of_birth, avatar_path)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                  [teamId, category, name, nick, phoneNum, genderVal, birthdate, avatarPath],
+                  (err, result) => {
+                    if (err) {
+                      reject(err);
+                    } else {
+                      resolve(result);
+                    }
+                  }
+                );
+              });
+            });
+            
+            Promise.all(playerPromises)
+              .then(() => {
+                connection.release();
+                res.json({ success: true, message: 'Cập nhật VĐV thành công', registration_id: teamId });
+              })
+              .catch(err => {
+                connection.release();
+                console.error('Lỗi cập nhật VĐV:', err);
+                res.status(500).json({ success: false, message: 'Lỗi database: ' + err.message });
+              });
+          }
+        );
+      }
+    );
+  });
 });
 
 // Route đăng xuất
