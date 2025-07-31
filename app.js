@@ -49,6 +49,13 @@ const requireAdmin = (req, res, next) => {
   }
 };
 
+// Debug Environment Variables
+console.log('Environment Variables:');
+console.log('DB_HOST:', process.env.DB_HOST);
+console.log('DB_USER:', process.env.DB_USER);
+console.log('DB_NAME:', process.env.DB_NAME);
+console.log('DB_PORT:', process.env.DB_PORT);
+
 // Kết nối MySQL với connection pool
 const db = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -58,8 +65,6 @@ const db = mysql.createPool({
   charset: 'utf8mb4',
   connectionLimit: 10,
   connectTimeout: 60000,
-  acquireTimeout: 60000,
-  timeout: 60000,
   queueLimit: 0
 });
 
