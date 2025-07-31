@@ -65,12 +65,8 @@ const db = mysql.createPool({
   charset: 'utf8mb4',
   connectionLimit: 3,
   connectTimeout: 60000,
-  acquireTimeout: 60000,
-  timeout: 60000,
   queueLimit: 0,
-  waitForConnections: true,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0
+  waitForConnections: true
 });
 
 // Test kết nối với retry
@@ -112,10 +108,22 @@ app.set('db', db);
 
 // Middleware để kiểm tra database connection
 app.use((req, res, next) => {
-  if (req.path.startsWith('/api/') || req.path === '/login' || req.path === '/register') {
+  // Bỏ qua healthcheck và static files
+  if (req.path === '/health' || req.path.startsWith('/css/') || req.path.startsWith('/js/') || req.path.startsWith('/images/')) {
+    return next();
+  }
+  
+  // Kiểm tra database cho các route cần thiết
+  if (req.path.startsWith('/api/') || req.path === '/login' || req.path === '/register' || req.path === '/home' || req.path === '/form') {
     db.getConnection((err, connection) => {
       if (err) {
         console.error('Database connection error in middleware:', err);
+        if (req.path === '/login' || req.path === '/register') {
+          return res.render('error', { 
+            message: 'Lỗi kết nối database. Vui lòng thử lại sau.',
+            error: 'Database connection failed'
+          });
+        }
         return res.status(500).json({ 
           success: false, 
           message: 'Lỗi kết nối database. Vui lòng thử lại sau.' 
