@@ -129,6 +129,11 @@ app.use((req, res, next) => {
   }
 });
 
+// Route test cho healthcheck
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'Server is running' });
+});
+
 // Route trang chủ
 app.get('/', (req, res) => {
   res.redirect('/home');
