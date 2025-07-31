@@ -56,11 +56,7 @@ const db = mysql.createPool({
   password: process.env.DB_PASSWORD || 'admin',
   database: process.env.DB_NAME || 'pickleball',
   charset: 'utf8mb4',
-  collation: 'utf8mb4_unicode_ci',
-  connectionLimit: 10,
-  acquireTimeout: 60000,
-  timeout: 60000,
-  reconnect: true
+  connectionLimit: 10
 });
 
 // Test kết nối
