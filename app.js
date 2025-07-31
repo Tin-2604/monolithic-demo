@@ -63,19 +63,22 @@ const db = mysql.createPool({
   password: process.env.DB_PASSWORD || 'admin',
   database: process.env.DB_NAME || 'pickleball',
   charset: 'utf8mb4',
-  connectionLimit: 10,
-  connectTimeout: 60000,
-  queueLimit: 0
+  connectionLimit: 5,
+  connectTimeout: 30000,
+  acquireTimeout: 30000,
+  timeout: 30000,
+  queueLimit: 0,
+  waitForConnections: true
 });
 
 // Test kết nối với retry
-function testConnection(retries = 3) {
+function testConnection(retries = 5) {
   db.getConnection((err, connection) => {
     if (err) {
       console.error('Lỗi kết nối MySQL:', err);
       if (retries > 0) {
         console.log(`Thử kết nối lại... (${retries} lần còn lại)`);
-        setTimeout(() => testConnection(retries - 1), 5000);
+        setTimeout(() => testConnection(retries - 1), 3000);
       } else {
         console.error('Không thể kết nối database sau nhiều lần thử');
       }
@@ -86,7 +89,10 @@ function testConnection(retries = 3) {
   });
 }
 
-testConnection();
+// Đợi một chút trước khi test connection
+setTimeout(() => {
+  testConnection();
+}, 2000);
 
 // Truyền kết nối DB cho routes
 app.set('db', db);
@@ -573,6 +579,15 @@ app.use('/tournament', tournamentRoutes);
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
+  
+  // Kiểm tra nếu là lỗi database
+  if (err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Lỗi kết nối database. Vui lòng thử lại sau.' 
+    });
+  }
+  
   res.status(500).json({ success: false, message: 'Có lỗi xảy ra!' });
 });
 
