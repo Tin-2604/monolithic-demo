@@ -75,14 +75,25 @@ const db = mysql.createPool({
 
 // Test kết nối với retry
 function testConnection(retries = 10) {
+  console.log(`Đang thử kết nối database lần ${11 - retries}/10...`);
   db.getConnection((err, connection) => {
     if (err) {
       console.error('Lỗi kết nối MySQL:', err);
+      console.error('Chi tiết lỗi:', {
+        code: err.code,
+        errno: err.errno,
+        syscall: err.syscall,
+        fatal: err.fatal
+      });
       if (retries > 0) {
         console.log(`Thử kết nối lại... (${retries} lần còn lại)`);
         setTimeout(() => testConnection(retries - 1), 5000);
       } else {
         console.error('Không thể kết nối database sau nhiều lần thử');
+        console.error('Vui lòng kiểm tra:');
+        console.error('1. Database có đang chạy không');
+        console.error('2. Environment Variables có đúng không');
+        console.error('3. Network connectivity');
       }
     } else {
       console.log('Kết nối MySQL thành công!');
