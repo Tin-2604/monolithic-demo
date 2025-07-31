@@ -63,8 +63,10 @@ const db = mysql.createPool({
   password: process.env.DB_PASSWORD || 'admin',
   database: process.env.DB_NAME || 'pickleball',
   charset: 'utf8mb4',
-  connectionLimit: 3,
-  connectTimeout: 60000,
+  connectionLimit: 5,
+  connectTimeout: 30000,
+  acquireTimeout: 30000,
+  timeout: 30000,
   queueLimit: 0,
   waitForConnections: true
 });
@@ -72,6 +74,12 @@ const db = mysql.createPool({
 // Test kết nối với retry
 function testConnection(retries = 10) {
   console.log(`Đang thử kết nối database lần ${11 - retries}/10...`);
+  console.log('Database config:', {
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    database: process.env.DB_NAME,
+    port: process.env.DB_PORT
+  });
   db.getConnection((err, connection) => {
     if (err) {
       console.error('Lỗi kết nối MySQL:', err);
