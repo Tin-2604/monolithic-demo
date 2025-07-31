@@ -49,22 +49,27 @@ const requireAdmin = (req, res, next) => {
   }
 };
 
-// Kết nối MySQL
-const db = mysql.createConnection({
+// Kết nối MySQL với connection pool
+const db = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || 'admin',
   database: process.env.DB_NAME || 'pickleball',
   charset: 'utf8mb4',
-  collation: 'utf8mb4_unicode_ci'
+  collation: 'utf8mb4_unicode_ci',
+  connectionLimit: 10,
+  acquireTimeout: 60000,
+  timeout: 60000,
+  reconnect: true
 });
 
 // Test kết nối
-db.connect(err => {
+db.getConnection((err, connection) => {
   if (err) {
     console.error('Lỗi kết nối MySQL:', err);
   } else {
     console.log('Kết nối MySQL thành công!');
+    connection.release();
   }
 });
 
