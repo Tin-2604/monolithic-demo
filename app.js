@@ -63,22 +63,24 @@ const db = mysql.createPool({
   password: process.env.DB_PASSWORD || 'admin',
   database: process.env.DB_NAME || 'pickleball',
   charset: 'utf8mb4',
-  connectionLimit: 5,
-  connectTimeout: 30000,
-  acquireTimeout: 30000,
-  timeout: 30000,
+  connectionLimit: 3,
+  connectTimeout: 60000,
+  acquireTimeout: 60000,
+  timeout: 60000,
   queueLimit: 0,
-  waitForConnections: true
+  waitForConnections: true,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0
 });
 
 // Test kết nối với retry
-function testConnection(retries = 5) {
+function testConnection(retries = 10) {
   db.getConnection((err, connection) => {
     if (err) {
       console.error('Lỗi kết nối MySQL:', err);
       if (retries > 0) {
         console.log(`Thử kết nối lại... (${retries} lần còn lại)`);
-        setTimeout(() => testConnection(retries - 1), 3000);
+        setTimeout(() => testConnection(retries - 1), 5000);
       } else {
         console.error('Không thể kết nối database sau nhiều lần thử');
       }
@@ -89,13 +91,32 @@ function testConnection(retries = 5) {
   });
 }
 
-// Đợi một chút trước khi test connection
+// Đợi lâu hơn trước khi test connection
 setTimeout(() => {
   testConnection();
-}, 2000);
+}, 10000);
 
 // Truyền kết nối DB cho routes
 app.set('db', db);
+
+// Middleware để kiểm tra database connection
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/') || req.path === '/login' || req.path === '/register') {
+    db.getConnection((err, connection) => {
+      if (err) {
+        console.error('Database connection error in middleware:', err);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Lỗi kết nối database. Vui lòng thử lại sau.' 
+        });
+      }
+      connection.release();
+      next();
+    });
+  } else {
+    next();
+  }
+});
 
 // Route trang chủ
 app.get('/', (req, res) => {
